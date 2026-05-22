@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: aurasense-backend
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: npm install
+    startCommand: npm run server
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: PORT
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: REGISTRATION_ENABLED
+        value: false
+      - key: DEMO_AUTH_ENABLED
+        value: true
+      - key: DEMO_USER_NAME
+        value: AuraSense Demo
+      - key: DEMO_USER_EMAIL
+        value: demo@aurasense.app
+      - key: DEMO_USER_PASSWORD
+        sync: false
