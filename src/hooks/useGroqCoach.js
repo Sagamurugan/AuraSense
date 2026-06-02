@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const API_KEY_STORAGE_KEY = "aura_groq_api_key";
-const MODEL = "mixtral-8x7b-32768";
+const MODEL = "llama-3.1-8b-instant";
 const MAX_TOKENS = 512;
+const ENV_API_KEY = typeof import.meta !== "undefined" && import.meta.env?.VITE_GROQ_API_KEY
+  ? import.meta.env.VITE_GROQ_API_KEY
+  : "";
 
 function buildSystemPrompt(context) {
   const { liveMetrics, dashboardMetrics, sessionHistory, settings } = context;
@@ -58,7 +61,15 @@ function useGroqCoach({
   settings,
   liveCalibration,
 }) {
-  const [apiKey, setApiKey] = useState(() => readStoredKey());
+  const [apiKey, setApiKey] = useState(() => {
+    const stored = readStoredKey();
+    if (stored) return stored;
+    if (ENV_API_KEY) {
+      storeKey(ENV_API_KEY);
+      return ENV_API_KEY;
+    }
+    return "";
+  });
   const [status, setStatus] = useState(apiKey ? "ready" : "no-key");
   const [error, setError] = useState(null);
   const [lastSuggestion, setLastSuggestion] = useState(null);
@@ -115,12 +126,14 @@ function useGroqCoach({
       });
 
       if (!response.ok) {
+        let detail = "";
+        try { const err = await response.json(); detail = err.error?.message || ""; } catch {}
         if (response.status === 401 || response.status === 403) {
           setStatus("invalid-key");
           setError("Invalid API key. Please update your Groq API key.");
         } else {
           setStatus("error");
-          setError(`Groq API error: ${response.status}`);
+          setError(`Groq API error (${response.status}): ${detail}`.trim());
         }
         return null;
       }
