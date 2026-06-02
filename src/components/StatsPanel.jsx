@@ -1,214 +1,124 @@
-import { formatDuration } from "../utils/analytics";
-
 function MetricCard({ label, value, helper, tone = "slate" }) {
-  const toneClasses = {
-    sky: "border-sky-400/20 bg-sky-500/10",
-    emerald: "border-emerald-400/20 bg-emerald-500/10",
-    orange: "border-orange-400/20 bg-orange-500/10",
-    slate: "border-white/10 bg-white/[0.035]",
+  const toneStyles = {
+    sky: { border: "rgba(56,189,248,0.25)", bg: "rgba(56,189,248,0.1)", text: "#7dd3fc" },
+    emerald: { border: "rgba(52,211,153,0.25)", bg: "rgba(52,211,153,0.1)", text: "#34d399" },
+    orange: { border: "rgba(251,146,60,0.25)", bg: "rgba(251,146,60,0.1)", text: "#fb923c" },
+    slate: { border: "var(--border-color)", bg: "var(--bg-panel)", text: "var(--text-primary)" },
   };
+  const t = toneStyles[tone] || toneStyles.slate;
 
   return (
-    <div className={`rounded-2xl border p-4 ${toneClasses[tone] ?? toneClasses.slate}`}>
-      <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{label}</p>
-      <p className="mt-3 text-2xl font-semibold text-white">{value}</p>
-      {helper ? <p className="mt-2 text-sm text-slate-400">{helper}</p> : null}
+    <div className="rounded-2xl border p-4" style={{ borderColor: t.border, background: t.bg }}>
+      <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{label}</p>
+      <p className="mt-3 text-2xl font-semibold" style={{ color: t.text }}>{value}</p>
+      {helper ? <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>{helper}</p> : null}
     </div>
   );
 }
 
 function SignalItem({ label, value, helper }) {
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-      <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{label}</p>
-      <p className="mt-2 text-xl font-semibold text-white">{value}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-400">{helper}</p>
+    <div className="rounded-2xl border p-4" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel)" }}>
+      <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{label}</p>
+      <p className="mt-2 text-xl font-semibold" style={{ color: "var(--text-primary)" }}>{value}</p>
+      <p className="mt-2 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{helper}</p>
     </div>
   );
 }
 
 function ConfidenceBadge({ liveMetrics }) {
   const toneMap = {
-    High: "border-emerald-400/20 bg-emerald-500/12 text-emerald-100",
-    Medium: "border-orange-400/20 bg-orange-500/12 text-orange-100",
-    Low: "border-rose-400/20 bg-rose-500/12 text-rose-100",
+    High: { bg: "rgba(52,211,153,0.12)", text: "#34d399", border: "rgba(52,211,153,0.25)" },
+    Medium: { bg: "rgba(251,146,60,0.12)", text: "#fb923c", border: "rgba(251,146,60,0.25)" },
+    Low: { bg: "rgba(239,68,68,0.12)", text: "#f87171", border: "rgba(239,68,68,0.25)" },
   };
+  const t = toneMap[liveMetrics.measurementConfidence] || toneMap.Low;
 
   return (
-    <div
-      className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-        toneMap[liveMetrics.measurementConfidence] ?? toneMap.Low
-      }`}
-    >
-      {liveMetrics.measurementConfidence} confidence
+    <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold" style={{ background: t.bg, borderColor: t.border, color: t.text }}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: t.text }} />
+      {liveMetrics.measurementConfidence}
+    </span>
+  );
+}
+
+function ProgressBar({ value, label }) {
+  const getColor = (v) => {
+    if (v >= 70) return "#22c55e";
+    if (v >= 45) return "#f97316";
+    return "#ef4444";
+  };
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-20 text-xs" style={{ color: "var(--text-secondary)" }}>{label}</span>
+      <div className="flex-1 rounded-full h-2" style={{ background: "var(--bg-elevated)" }}>
+        <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(value, 100)}%`, background: getColor(value) }} />
+      </div>
+      <span className="w-8 text-right text-xs font-medium" style={{ color: "var(--text-primary)" }}>{value}</span>
     </div>
   );
 }
 
-function StatsPanel({ liveMetrics, sessionActive, cameraReady, compact = false }) {
-  if (compact) {
-    return (
-      <section className="panel-card p-5">
-        <div className="mb-5 flex items-start justify-between gap-3">
+function StatsPanel({ liveMetrics, compact }) {
+  const items = [
+    { label: "Focus Score", value: liveMetrics.focusScore, tone: "sky" },
+    { label: "Fatigue Score", value: `${liveMetrics.fatigueScore}%`, tone: liveMetrics.fatigueScore >= 55 ? "orange" : "emerald" },
+    { label: "Attention", value: liveMetrics.attentionScore, tone: "violet" },
+    { label: "Blinks", value: liveMetrics.blinkCount, tone: "slate" },
+  ];
+
+  return (
+    <section className="panel-card overflow-hidden">
+      <div className="border-b px-5 py-4" style={{ borderColor: "var(--border-color)" }}>
+        <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Live Status</p>
-            <h2 className="mt-2 text-xl font-semibold text-white">Essential telemetry</h2>
+            <p className="text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Primary signals</p>
+            <h2 className="mt-1 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>Live session telemetry</h2>
           </div>
           <ConfidenceBadge liveMetrics={liveMetrics} />
         </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <MetricCard
-            label="Session"
-            value={formatDuration(liveMetrics.durationSeconds)}
-            helper={sessionActive ? "Session is currently active." : "Waiting for a new session."}
-            tone="sky"
-          />
-          <MetricCard
-            label="Focus"
-            value={liveMetrics.focusScore}
-            helper={`Fatigue ${liveMetrics.fatigueScore}% · Attention ${liveMetrics.attentionScore}`}
-            tone="emerald"
-          />
-          <MetricCard
-            label="Blink Rate"
-            value={`${liveMetrics.blinkRate}/min`}
-            helper={`Blink model ${liveMetrics.signalQuality} · ${liveMetrics.trackingQualityScore}`}
-          />
-          <MetricCard
-            label="Posture"
-            value={liveMetrics.postureScore}
-            helper={`${liveMetrics.posture} · Face away ${liveMetrics.faceAwaySeconds}s`}
-            tone={cameraReady ? "slate" : "orange"}
-          />
-        </div>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <SignalItem
-            label="Distraction"
-            value={liveMetrics.distractionLevel}
-            helper={`${liveMetrics.distractionEvents} interruption events this session.`}
-          />
-          <SignalItem
-            label="Drowsiness"
-            value={liveMetrics.drowsinessRisk}
-            helper={`Score ${liveMetrics.drowsinessScore} · ${liveMetrics.measurementConfidence} confidence.`}
-          />
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="panel-card p-5">
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Stats Panel</p>
-          <h2 className="mt-2 text-xl font-semibold text-white">Detailed live telemetry</h2>
-        </div>
-        <ConfidenceBadge liveMetrics={liveMetrics} />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <MetricCard
-          label="Blink Count"
-          value={liveMetrics.blinkCount}
-          helper="Session blink total updates in real time."
-          tone="sky"
-        />
-        <MetricCard
-          label="Fatigue Score"
-          value={`${liveMetrics.fatigueScore}%`}
-          helper="Current fatigue estimate from your ongoing session."
-          tone="orange"
-        />
-        <MetricCard
-          label="Focus Score"
-          value={liveMetrics.focusScore}
-          helper="Balances blink consistency and session stability."
-          tone="emerald"
-        />
-        <MetricCard
-          label="Session Timer"
-          value={formatDuration(liveMetrics.durationSeconds)}
-          helper="Elapsed session time visible while charts and overlays keep updating."
-        />
-      </div>
-
-      <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm text-slate-400">Operational Status</p>
-            <p className="mt-2 text-lg font-semibold text-white">
-              {sessionActive ? "Streaming and analyzing" : "Waiting to start"}
-            </p>
+      <div className="p-5">
+        {compact ? (
+          <div className="grid grid-cols-2 gap-3">
+            {items.slice(0, 4).map((item) => (
+              <MetricCard key={item.label} label={item.label} value={item.value} tone={item.tone} />
+            ))}
+            <div className="col-span-2 space-y-3 mt-2">
+              <ProgressBar label="Posture" value={liveMetrics.postureScore} />
+              <ProgressBar label="Gaze" value={liveMetrics.gazeDriftScore} />
+              <ProgressBar label="Head" value={liveMetrics.headMovementScore} />
+            </div>
           </div>
-          <div
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              cameraReady
-                ? "bg-emerald-400/15 text-emerald-300"
-                : "bg-orange-400/15 text-orange-300"
-            }`}
-          >
-            {cameraReady ? "Camera online" : "Camera offline"}
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {items.map((item) => (
+              <MetricCard key={item.label} label={item.label} value={item.value} helper={item.helper} tone={item.tone} />
+            ))}
+            <div className="md:col-span-2 space-y-3 mt-2">
+              <ProgressBar label="Posture score" value={liveMetrics.postureScore} />
+              <ProgressBar label="Gaze drift" value={liveMetrics.gazeDriftScore} />
+              <ProgressBar label="Head stability" value={liveMetrics.headMovementScore} />
+              <ProgressBar label="Tracking quality" value={liveMetrics.trackingQualityScore} />
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <SignalItem
-            label="Blink Rate"
-            value={`${liveMetrics.blinkRate}/min`}
-            helper={`Blink model ${liveMetrics.signalQuality} · ${liveMetrics.trackingQualityScore}`}
-          />
-          <SignalItem
-            label="Face Presence"
-            value={liveMetrics.faceDetected ? "Detected" : "Searching"}
-            helper={`Away from frame ${liveMetrics.faceAwaySeconds}s`}
-          />
-          <SignalItem
-            label="Posture"
-            value={liveMetrics.posture}
-            helper={`Posture score ${liveMetrics.postureScore}`}
-          />
-          <SignalItem
-            label="Attention"
-            value={liveMetrics.attentionScore}
-            helper={`${liveMetrics.distractionEvents} interruption events this session.`}
-          />
-        </div>
-
-        <div className="mt-5">
-          <p className="mb-3 text-xs uppercase tracking-[0.24em] text-slate-500">
-            Predictive Signals
-          </p>
-          <div className="grid gap-3 xl:grid-cols-2">
+        {!compact && (
+          <div className="mt-5 space-y-3">
             <SignalItem
-              label="Head Stability"
-              value={liveMetrics.headMovementScore}
-              helper="Tracks head movement steadiness during the session."
+              label="Eye state"
+              value={liveMetrics.eyeClosureRisk === "High" ? "Prolonged closure risk" : liveMetrics.blinkGateOpen ? "Normal tracking" : "Blink gate paused"}
+              helper={`Closures: ${liveMetrics.prolongedClosures} · Yawns: ${liveMetrics.yawnEvents} · Drowsiness: ${liveMetrics.drowsinessRisk}`}
             />
             <SignalItem
-              label="Gaze Drift"
-              value={liveMetrics.gazeDriftLevel}
-              helper={`Score ${liveMetrics.gazeDriftScore} with ${liveMetrics.gazeDriftEvents} events.`}
-            />
-            <SignalItem
-              label="Eye Closure Risk"
-              value={liveMetrics.eyeClosureRisk}
-              helper={`${liveMetrics.prolongedClosures} prolonged closures detected.`}
-            />
-            <SignalItem
-              label="Yawn Events"
-              value={liveMetrics.yawnEvents}
-              helper={`Mouth-open ratio ${liveMetrics.mouthOpenRatio?.toFixed?.(2) ?? liveMetrics.mouthOpenRatio}`}
-            />
-            <SignalItem
-              label="Drowsiness"
-              value={liveMetrics.drowsinessRisk}
-              helper={`Score ${liveMetrics.drowsinessScore} · ${liveMetrics.measurementConfidence} confidence.`}
+              label="Face position"
+              value={liveMetrics.posture}
+              helper={`Away: ${liveMetrics.faceAwaySeconds}s · Distraction: ${liveMetrics.distractionLevel} (${liveMetrics.distractionEvents} events)`}
             />
           </div>
-        </div>
+        )}
       </div>
     </section>
   );

@@ -127,7 +127,7 @@ function useGroqCoach({
 
       if (!response.ok) {
         let detail = "";
-        try { const err = await response.json(); detail = err.error?.message || ""; } catch {}
+        try { const err = await response.json(); detail = err.error?.message || ""; } catch { /* ignore */ }
         if (response.status === 401 || response.status === 403) {
           setStatus("invalid-key");
           setError("Invalid API key. Please update your Groq API key.");

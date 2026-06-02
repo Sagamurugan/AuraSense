@@ -69,81 +69,36 @@ const viewConfig = {
   },
 };
 
-const mobileNavItems = [
-  { id: "home", label: "Home", tone: "bg-sky-500/15 text-sky-100 border-sky-400/25" },
-  {
-    id: "analytics",
-    label: "Analytics",
-    tone: "bg-violet-500/15 text-violet-100 border-violet-400/25",
-  },
-  {
-    id: "sessions",
-    label: "Sessions",
-    tone: "bg-emerald-500/15 text-emerald-100 border-emerald-400/25",
-  },
-  {
-    id: "insights",
-    label: "Insights",
-    tone: "bg-amber-500/15 text-amber-100 border-amber-400/25",
-  },
-  {
-    id: "settings",
-    label: "Settings",
-    tone: "bg-fuchsia-500/15 text-fuchsia-100 border-fuchsia-400/25",
-  },
-];
-
-function MobileViewTabs({ activeView, onSelectView }) {
-  return (
-    <div className="mb-5 flex gap-3 overflow-x-auto pb-1 lg:hidden">
-      {mobileNavItems.map((item) => {
-        const isActive = item.id === activeView;
-
-        return (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onSelectView(item.id)}
-            className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
-              isActive
-                ? item.tone
-                : "border-white/10 bg-white/[0.04] text-slate-300"
-            }`}
-          >
-            {item.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function HeroStat({ label, value }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3">
-      <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">{label}</p>
-      <p className="mt-2 text-lg font-semibold text-white">{value}</p>
+    <div className="rounded-2xl border px-4 py-3" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel)" }}>
+      <p className="text-[10px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{label}</p>
+      <p className="mt-2 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>{value}</p>
     </div>
   );
 }
 
 function WorkspaceHero({ currentView, liveMetrics, totalSessions, alertsCount, sessionActive }) {
   return (
-    <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[#0a1426]/92 p-5 shadow-2xl shadow-slate-950/25 lg:p-6">
-      <div
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-r ${currentView.accent}`}
-      />
+    <section
+      className="relative overflow-hidden rounded-[28px] border p-5 shadow-2xl lg:p-6"
+      style={{ borderColor: "var(--border-color)", background: "color-mix(in srgb, var(--bg-panel) 92%, transparent)" }}
+    >
+      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-r ${currentView.accent}`} />
       <div className="relative">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-slate-300">
+            <div
+              className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] uppercase tracking-widest"
+              style={{ borderColor: "var(--border-color)", background: "var(--bg-panel)", color: "var(--text-secondary)" }}
+            >
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
               {currentView.eyebrow}
             </div>
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white lg:text-4xl">
+            <h1 className="mt-4 text-3xl font-semibold tracking-tight lg:text-4xl" style={{ color: "var(--text-primary)" }}>
               {currentView.title}
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-400">
+            <p className="mt-3 max-w-2xl text-sm leading-7" style={{ color: "var(--text-secondary)" }}>
               {currentView.description}
             </p>
           </div>
@@ -214,6 +169,7 @@ function SearchResults({ query, results, onSelectResult, onClear }) {
 function App() {
   const auth = useAuth();
   const [activeView, setActiveView] = useState("home");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { sessionHistory, setSessionHistory, storageMode, isStorageReady } = useSessionStorage();
   const {
@@ -396,8 +352,6 @@ function App() {
           <div className="space-y-6">
             <StatsPanel
               liveMetrics={liveMetrics}
-              sessionActive={sessionActive}
-              cameraReady={cameraReady}
               compact
             />
           </div>
@@ -456,8 +410,6 @@ function App() {
 
           <StatsPanel
             liveMetrics={liveMetrics}
-            sessionActive={sessionActive}
-            cameraReady={cameraReady}
           />
         </div>
       );
@@ -498,8 +450,11 @@ function App() {
 
   if (auth.isChecking) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#07111f] text-slate-100">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.04] px-6 py-5 text-sm text-slate-300">
+      <div
+        className="flex min-h-screen items-center justify-center"
+        style={{ background: "var(--bg-body)", color: "var(--text-secondary)" }}
+      >
+        <div className="rounded-3xl border px-6 py-5 text-sm" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel)" }}>
           Verifying session...
         </div>
       </div>
@@ -512,9 +467,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-[#07111f] text-slate-100">
-        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.14),_transparent_26%),radial-gradient(circle_at_top_right,_rgba(129,140,248,0.12),_transparent_24%),linear-gradient(180deg,_rgba(7,17,31,1),_rgba(2,6,23,1))]" />
-
+      <div className="min-h-screen" style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}>
         <div className="relative flex min-h-screen">
           <Sidebar
             sessionActive={sessionActive}
@@ -523,6 +476,7 @@ function App() {
             totalSessions={enhancedHistory.length}
             activeView={activeView}
             onSelectView={setActiveView}
+            onClose={sidebarOpen ? () => setSidebarOpen(false) : undefined}
           />
 
           <div className="flex min-h-screen min-w-0 flex-1 flex-col">
@@ -538,11 +492,11 @@ function App() {
               onSearchChange={setSearchQuery}
               user={auth.user}
               onLogout={auth.logout}
+              onToggleSidebar={() => setSidebarOpen((v) => !v)}
             />
 
-            <main className="flex-1 px-4 pb-6 pt-4 md:px-6 lg:px-7">
-              <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
-                <MobileViewTabs activeView={activeView} onSelectView={setActiveView} />
+            <main className="flex-1 px-3 pb-6 pt-3 md:px-6 lg:px-7">
+              <div className="mx-auto flex max-w-[1500px] flex-col gap-4 md:gap-6">
                 <WorkspaceHero
                   currentView={currentView}
                   liveMetrics={liveMetrics}
