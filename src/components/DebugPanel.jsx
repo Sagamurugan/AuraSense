@@ -1,9 +1,9 @@
 function MetricTile({ label, value, helper }) {
   return (
-    <div className="rounded-2xl border border-white/8 bg-slate-950/50 p-4">
-      <p className="text-xs uppercase tracking-[0.24em] text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
-      {helper ? <p className="mt-1 text-sm text-slate-400">{helper}</p> : null}
+    <div className="rounded-2xl border p-4" style={{ borderColor: "var(--border-color)", background: "var(--bg-elevated)" }}>
+      <p className="text-xs uppercase tracking-[0.24em]" style={{ color: "var(--text-muted)" }}>{label}</p>
+      <p className="mt-2 text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>{value}</p>
+      {helper ? <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{helper}</p> : null}
     </div>
   );
 }
@@ -14,11 +14,11 @@ function formatDecimal(value, digits = 3) {
 
 function DebugPanel({ liveMetrics }) {
   return (
-    <section className="panel-card border border-sky-500/20 bg-gradient-to-br from-sky-500/8 to-indigo-500/8 p-5">
-      <div className="border-b border-white/10 pb-5">
-        <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Validation Mode</p>
-        <h2 className="mt-2 text-xl font-semibold text-white">Realtime signal debug</h2>
-        <p className="mt-2 text-sm text-slate-400">
+    <section className="panel-card border p-5" style={{ borderColor: "rgba(56,189,248,0.2)", background: "linear-gradient(135deg, rgba(56,189,248,0.06), rgba(129,140,248,0.04))" }}>
+      <div className="border-b pb-5" style={{ borderColor: "var(--border-color)" }}>
+        <p className="text-xs uppercase tracking-[0.28em]" style={{ color: "var(--text-muted)" }}>Validation Mode</p>
+        <h2 className="mt-2 text-xl font-semibold" style={{ color: "var(--text-primary)" }}>Realtime signal debug</h2>
+        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
           Low-level tracking values to validate blink, yawn, and attention predictions while the camera runs.
         </p>
       </div>
@@ -51,8 +51,8 @@ function DebugPanel({ liveMetrics }) {
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-          <p className="text-sm font-medium text-white">Eye Signal</p>
+        <div className="rounded-3xl border p-4" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel-soft)" }}>
+          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Eye Signal</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <MetricTile
               label="Raw Eye Ratio"
@@ -92,8 +92,8 @@ function DebugPanel({ liveMetrics }) {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-          <p className="text-sm font-medium text-white">Mouth and Drowsiness Signal</p>
+        <div className="rounded-3xl border p-4" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel-soft)" }}>
+          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Mouth and Drowsiness Signal</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <MetricTile
               label="Raw Mouth Ratio"
@@ -119,15 +119,16 @@ function DebugPanel({ liveMetrics }) {
         </div>
       </div>
 
-      <div className="mt-4 rounded-3xl border border-white/10 bg-slate-950/40 p-4">
-        <p className="text-sm font-medium text-white">Validation Notes</p>
+      <div className="mt-4 rounded-3xl border p-4" style={{ borderColor: "var(--border-color)", background: "var(--bg-elevated)" }}>
+        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Validation Notes</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {(liveMetrics.validationNotes?.length
             ? liveMetrics.validationNotes
             : ["Signal looks stable right now."]).map((note) => (
             <span
               key={note}
-              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-200"
+              className="rounded-full border px-3 py-2 text-sm"
+              style={{ borderColor: "var(--border-color)", background: "var(--bg-panel-soft)", color: "var(--text-secondary)" }}
             >
               {note}
             </span>

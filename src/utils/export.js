@@ -18,7 +18,7 @@ function escapeCsv(value) {
   return text;
 }
 
-export function exportSessionsCsv(sessionHistory) {
+export function sessionsToCsv(sessionHistory) {
   const header = [
     "Date",
     "Duration",
@@ -51,11 +51,11 @@ export function exportSessionsCsv(sessionHistory) {
     session.prolongedClosures ?? 0,
   ]);
 
-  const csv = [header, ...rows]
-    .map((row) => row.map(escapeCsv).join(","))
-    .join("\n");
+  return [header, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\n");
+}
 
-  downloadBlob("aurasense-sessions.csv", csv, "text/csv;charset=utf-8");
+export function exportSessionsCsv(sessionHistory) {
+  downloadBlob("aurasense-sessions.csv", sessionsToCsv(sessionHistory), "text/csv;charset=utf-8");
 }
 
 export function exportAnalyticsCsv(dashboardMetrics) {

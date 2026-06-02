@@ -1,25 +1,34 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import CameraPanel from "./components/CameraPanel";
 import StatsPanel from "./components/StatsPanel";
-import Dashboard from "./components/Dashboard";
-import SessionHistory from "./components/SessionHistory";
-import InsightsPanel from "./components/InsightsPanel";
 import HomeOverview from "./components/HomeOverview";
-import SettingsPanel from "./components/SettingsPanel";
-import ExportPanel from "./components/ExportPanel";
 import AssistantPanel from "./components/AssistantPanel";
 import SessionReportModal from "./components/SessionReportModal";
+import ProfileModal from "./components/ProfileModal";
 import DebugPanel from "./components/DebugPanel";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AuthScreen from "./components/AuthScreen";
+import OfflineBanner from "./components/OfflineBanner";
+import MobileBottomNav from "./components/MobileBottomNav";
+import ViewErrorBoundary from "./components/ViewErrorBoundary";
+import { PanelSkeleton } from "./components/ViewSkeleton";
 import useFaceMesh from "./hooks/useFaceMesh";
 import useSessionAnalytics from "./hooks/useSessionAnalytics";
 import useSessionStorage from "./hooks/useSessionStorage";
 import useUserSettings from "./hooks/useUserSettings";
 import useGroqCoach from "./hooks/useGroqCoach";
 import useAuth from "./hooks/useAuth";
+import useOnlineStatus from "./hooks/useOnlineStatus";
+import useKeyboardShortcuts from "./hooks/useKeyboardShortcuts";
+import { useTheme } from "./context/ThemeContext";
+
+const Dashboard = lazy(() => import("./components/Dashboard"));
+const SessionHistory = lazy(() => import("./components/SessionHistory"));
+const InsightsPanel = lazy(() => import("./components/InsightsPanel"));
+const SettingsPanel = lazy(() => import("./components/SettingsPanel"));
+const ExportPanel = lazy(() => import("./components/ExportPanel"));
 import {
   createInsightSummary,
   deriveAlerts,
@@ -122,15 +131,16 @@ function SearchResults({ query, results, onSelectResult, onClear }) {
 
   return (
     <section className="panel-card p-5">
-      <div className="flex flex-col gap-3 border-b border-white/10 pb-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 pb-4 md:flex-row md:items-center md:justify-between" style={{ borderBottom: "1px solid var(--border-color)" }}>
         <div>
-          <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Search</p>
-          <h2 className="mt-2 text-xl font-semibold text-white">Results for "{query}"</h2>
+          <p className="text-xs uppercase tracking-[0.28em]" style={{ color: "var(--text-muted)" }}>Search</p>
+          <h2 className="mt-2 text-xl font-semibold" style={{ color: "var(--text-primary)" }}>Results for "{query}"</h2>
         </div>
         <button
           type="button"
           onClick={onClear}
-          className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:bg-white/[0.08]"
+          className="rounded-full border px-4 py-2 text-sm transition"
+          style={{ borderColor: "var(--border-color)", background: "var(--bg-panel-soft)", color: "var(--text-secondary)" }}
         >
           Clear search
         </button>
@@ -143,21 +153,22 @@ function SearchResults({ query, results, onSelectResult, onClear }) {
               key={`${result.type}-${result.title}-${result.view}`}
               type="button"
               onClick={() => onSelectResult(result)}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-left transition hover:border-sky-400/20 hover:bg-white/[0.06]"
+              className="rounded-2xl border px-4 py-4 text-left transition"
+              style={{ borderColor: "var(--border-color)", background: "var(--bg-panel-soft)" }}
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold text-white">{result.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-400">{result.description}</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{result.title}</p>
+                  <p className="mt-1 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{result.description}</p>
                 </div>
-                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-300">
+                <span className="rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.22em]" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel)", color: "var(--text-muted)" }}>
                   {result.view}
                 </span>
               </div>
             </button>
           ))
         ) : (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/35 px-4 py-6 text-sm text-slate-400">
+          <div className="rounded-2xl border border-dashed px-4 py-6 text-sm" style={{ borderColor: "var(--border-color)", background: "var(--bg-elevated)", color: "var(--text-secondary)" }}>
             No matching workspace items were found. Try terms like focus, fatigue, exports, sessions, or settings.
           </div>
         )}
@@ -166,12 +177,29 @@ function SearchResults({ query, results, onSelectResult, onClear }) {
   );
 }
 
+function LazyView({ children }) {
+  return <Suspense fallback={<PanelSkeleton />}>{children}</Suspense>;
+}
+
 function App() {
   const auth = useAuth();
+  const { toggleTheme } = useTheme();
+  const isOnline = useOnlineStatus();
+  const searchInputRef = useRef(null);
   const [activeView, setActiveView] = useState("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const { sessionHistory, setSessionHistory, storageMode, isStorageReady } = useSessionStorage();
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
+  const {
+    sessionHistory,
+    setSessionHistory,
+    storageMode,
+    isStorageReady,
+    storageError,
+    deleteSession,
+    updateSession,
+  } = useSessionStorage(auth.token);
   const {
     enhancedHistory,
     liveMetrics,
@@ -203,14 +231,34 @@ function App() {
     liveMetrics,
   });
 
-  const { cameraReady, cameraError, isInitializing, videoRef, canvasRef } = useFaceMesh({
-    sessionActiveRef,
-    sessionStartRef,
-    statsRef,
-    settings,
-    onMetricsUpdate: handleMetricsUpdate,
-    onTrendSample: handleTrendSample,
+  const { cameraReady, cameraError, isInitializing, modelLoadMessage, retryCamera, videoRef, canvasRef } =
+    useFaceMesh({
+      sessionActiveRef,
+      sessionStartRef,
+      statsRef,
+      settings,
+      onMetricsUpdate: handleMetricsUpdate,
+      onTrendSample: handleTrendSample,
+      enabled: auth.isAuthenticated,
+      showMeshOverlay: settings.showMeshOverlay !== false,
+    });
+
+  const wrappedStartSession = useCallback(() => {
+    startSession();
+    setLiveAnnouncement("Monitoring session started.");
+  }, [startSession]);
+
+  const wrappedStopSession = useCallback(() => {
+    stopSession();
+    setLiveAnnouncement("Monitoring session ended.");
+  }, [stopSession]);
+
+  useKeyboardShortcuts({
     enabled: auth.isAuthenticated,
+    onToggleSession: () => (sessionActive ? wrappedStopSession() : wrappedStartSession()),
+    onToggleTheme: toggleTheme,
+    onNavigate: setActiveView,
+    onFocusSearch: () => searchInputRef.current?.focus(),
   });
 
   const dashboardMetrics = useMemo(
@@ -338,8 +386,12 @@ function App() {
               cameraReady={cameraReady}
               cameraError={cameraError}
               isInitializing={isInitializing}
-              onStartSession={startSession}
-              onStopSession={stopSession}
+              modelLoadMessage={modelLoadMessage}
+              onRetryCamera={retryCamera}
+              showMeshOverlay={settings.showMeshOverlay !== false}
+              onToggleMeshOverlay={() => updateSetting("showMeshOverlay", !settings.showMeshOverlay)}
+              onStartSession={wrappedStartSession}
+              onStopSession={wrappedStopSession}
             />
             <HomeOverview
               liveMetrics={liveMetrics}
@@ -361,90 +413,138 @@ function App() {
 
     if (activeView === "analytics") {
       return (
-        <div className="space-y-6">
-          <Dashboard
-            trendData={trendData}
-            sessionHistory={enhancedHistory}
-            dashboardMetrics={dashboardMetrics}
-          />
-          <ExportPanel
-            sessionHistory={enhancedHistory}
-            dashboardMetrics={dashboardMetrics}
-            settings={settings}
-            storageMode={storageMode}
-            isStorageReady={isStorageReady}
-          />
-        </div>
+        <ViewErrorBoundary title="Analytics failed to load.">
+          <div className="space-y-6">
+            <LazyView>
+              <Dashboard
+                trendData={trendData}
+                sessionHistory={enhancedHistory}
+                dashboardMetrics={dashboardMetrics}
+              />
+            </LazyView>
+            <LazyView>
+              <ExportPanel
+                sessionHistory={enhancedHistory}
+                dashboardMetrics={dashboardMetrics}
+                settings={settings}
+                storageMode={storageMode}
+                isStorageReady={isStorageReady}
+              />
+            </LazyView>
+          </div>
+        </ViewErrorBoundary>
       );
     }
 
     if (activeView === "sessions") {
       return (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-          <SessionHistory sessionHistory={enhancedHistory} />
-          <Dashboard
-            trendData={trendData}
-            sessionHistory={enhancedHistory}
-            dashboardMetrics={dashboardMetrics}
-          />
-        </div>
+        <ViewErrorBoundary title="Session library failed to load.">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+            <LazyView>
+              <SessionHistory
+                sessionHistory={enhancedHistory}
+                onDeleteSession={deleteSession}
+                onUpdateSession={updateSession}
+              />
+            </LazyView>
+            <LazyView>
+              <Dashboard
+                trendData={trendData}
+                sessionHistory={enhancedHistory}
+                dashboardMetrics={dashboardMetrics}
+              />
+            </LazyView>
+          </div>
+        </ViewErrorBoundary>
       );
     }
 
     if (activeView === "insights") {
       return (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="space-y-6">
-            <InsightsPanel
-              insights={insights}
-              alerts={alerts}
-              liveMetrics={liveMetrics}
-              bestSession={dashboardMetrics.bestSession}
-            />
-            <Dashboard
-              trendData={trendData}
-              sessionHistory={enhancedHistory}
-              dashboardMetrics={dashboardMetrics}
-            />
+        <ViewErrorBoundary title="Insights failed to load.">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="space-y-6">
+              <LazyView>
+                <InsightsPanel
+                  insights={insights}
+                  alerts={alerts}
+                  liveMetrics={liveMetrics}
+                  bestSession={dashboardMetrics.bestSession}
+                />
+              </LazyView>
+              <LazyView>
+                <Dashboard
+                  trendData={trendData}
+                  sessionHistory={enhancedHistory}
+                  dashboardMetrics={dashboardMetrics}
+                />
+              </LazyView>
+            </div>
+            <StatsPanel liveMetrics={liveMetrics} />
           </div>
-
-          <StatsPanel
-            liveMetrics={liveMetrics}
-          />
-        </div>
+        </ViewErrorBoundary>
       );
     }
 
     return (
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-6">
-          <SettingsPanel
-            settings={settings}
-            updateSetting={updateSetting}
-            recommendedBaseline={recommendedBaseline}
-            calibrateFromLiveSession={calibrateFromLiveSession}
-            calibrateFromHistory={calibrateFromHistory}
-            liveMetrics={liveMetrics}
-            liveCalibration={liveCalibration}
-          />
-          <ExportPanel
-            sessionHistory={enhancedHistory}
-            dashboardMetrics={dashboardMetrics}
-            settings={settings}
-            storageMode={storageMode}
-            isStorageReady={isStorageReady}
-          />
+      <ViewErrorBoundary title="Settings failed to load.">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-6">
+            <LazyView>
+              <SettingsPanel
+                settings={settings}
+                updateSetting={updateSetting}
+                recommendedBaseline={recommendedBaseline}
+                calibrateFromLiveSession={calibrateFromLiveSession}
+                calibrateFromHistory={calibrateFromHistory}
+                liveMetrics={liveMetrics}
+                liveCalibration={liveCalibration}
+                onResetSettings={() => {
+                  if (window.confirm("Reset all settings to defaults?")) {
+                    localStorage.removeItem("aura-sense-settings");
+                    window.location.reload();
+                  }
+                }}
+                onExportSettings={() => {
+                  const blob = new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" });
+                  const url = URL.createObjectURL(blob);
+                  const anchor = document.createElement("a");
+                  anchor.href = url;
+                  anchor.download = "aurasense-settings.json";
+                  anchor.click();
+                  URL.revokeObjectURL(url);
+                }}
+                onImportSettings={() => {
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = "application/json";
+                  input.onchange = async () => {
+                    const file = input.files?.[0];
+                    if (!file) return;
+                    const text = await file.text();
+                    const parsed = JSON.parse(text);
+                    Object.entries(parsed).forEach(([key, value]) => updateSetting(key, value));
+                  };
+                  input.click();
+                }}
+              />
+            </LazyView>
+            <LazyView>
+              <ExportPanel
+                sessionHistory={enhancedHistory}
+                dashboardMetrics={dashboardMetrics}
+                settings={settings}
+                storageMode={storageMode}
+                isStorageReady={isStorageReady}
+              />
+            </LazyView>
+          </div>
+          <div className="space-y-6">
+            {settings.debugMode ? <DebugPanel liveMetrics={liveMetrics} /> : null}
+            <StatsPanel liveMetrics={liveMetrics} />
+          </div>
         </div>
-
-        <div className="space-y-6">
-          {settings.debugMode ? <DebugPanel liveMetrics={liveMetrics} /> : null}
-          <StatsPanel
-            liveMetrics={liveMetrics}
-            sessionActive={sessionActive}
-            cameraReady={cameraReady}
-          />
-        </div>
-      </div>
+      </ViewErrorBoundary>
     );
   };
 
@@ -454,7 +554,7 @@ function App() {
         className="flex min-h-screen items-center justify-center"
         style={{ background: "var(--bg-body)", color: "var(--text-secondary)" }}
       >
-        <div className="rounded-3xl border px-6 py-5 text-sm" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel)" }}>
+        <div className="rounded-3xl px-6 py-5 text-sm" style={{ border: "1px solid var(--border-color)", background: "var(--bg-panel)", color: "var(--text-primary)" }}>
           Verifying session...
         </div>
       </div>
@@ -465,9 +565,21 @@ function App() {
     return <AuthScreen auth={auth} />;
   }
 
+  if (!isStorageReady && auth.isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={{ background: "var(--bg-body)" }}>
+        <PanelSkeleton />
+      </div>
+    );
+  }
+
   return (
     <ErrorBoundary>
-      <div className="min-h-screen" style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}>
+      <div className="min-h-screen pb-20 lg:pb-0" style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}>
+        <OfflineBanner isOnline={isOnline} />
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {liveAnnouncement}
+        </div>
         <div className="relative flex min-h-screen">
           <Sidebar
             sessionActive={sessionActive}
@@ -485,18 +597,29 @@ function App() {
               cameraError={cameraError}
               isInitializing={isInitializing}
               sessionActive={sessionActive}
-              onStartSession={startSession}
-              onStopSession={stopSession}
+              onStartSession={wrappedStartSession}
+              onStopSession={wrappedStopSession}
               currentView={currentView}
               searchValue={searchQuery}
               onSearchChange={setSearchQuery}
+              searchInputRef={searchInputRef}
               user={auth.user}
               onLogout={auth.logout}
               onToggleSidebar={() => setSidebarOpen((v) => !v)}
+              onOpenProfile={() => { setProfileOpen(true); setSidebarOpen(false) }}
             />
 
             <main className="flex-1 px-3 pb-6 pt-3 md:px-6 lg:px-7">
               <div className="mx-auto flex max-w-[1500px] flex-col gap-4 md:gap-6">
+                {storageError && (
+                  <div
+                    role="alert"
+                    className="rounded-2xl border px-4 py-3 text-sm"
+                    style={{ borderColor: "rgba(239,68,68,0.3)", color: "#fca5a5" }}
+                  >
+                    {storageError}
+                  </div>
+                )}
                 <WorkspaceHero
                   currentView={currentView}
                   liveMetrics={liveMetrics}
@@ -525,7 +648,22 @@ function App() {
           groqCoach={groqCoach}
         />
 
+        <MobileBottomNav
+          activeView={activeView}
+          onSelectView={setActiveView}
+          sessionActive={sessionActive}
+          onToggleSession={() => (sessionActive ? wrappedStopSession() : wrappedStartSession())}
+        />
+
         <SessionReportModal report={sessionReport} onClose={closeSessionReport} />
+        {profileOpen && (
+          <ProfileModal
+            user={auth.user}
+            authToken={auth.token}
+            onClose={() => setProfileOpen(false)}
+            onUpdate={(updated) => auth.updateAuthSessionProfile(updated)}
+          />
+        )}
       </div>
     </ErrorBoundary>
   );

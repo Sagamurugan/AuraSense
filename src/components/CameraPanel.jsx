@@ -8,6 +8,10 @@ function CameraPanel({
   cameraReady,
   cameraError,
   isInitializing,
+  modelLoadMessage,
+  onRetryCamera,
+  showMeshOverlay,
+  onToggleMeshOverlay,
   onStartSession,
   onStopSession,
 }) {
@@ -37,6 +41,16 @@ function CameraPanel({
 
           <button
             type="button"
+            onClick={() => onToggleMeshOverlay?.()}
+            className="rounded-2xl border px-4 py-2 text-sm"
+            style={{ borderColor: "var(--border-color)", color: "var(--text-secondary)" }}
+            aria-label={showMeshOverlay ? "Hide face mesh overlay" : "Show face mesh overlay"}
+          >
+            {showMeshOverlay ? "Hide mesh" : "Show mesh"}
+          </button>
+
+          <button
+            type="button"
             onClick={sessionActive ? onStopSession : onStartSession}
             disabled={!cameraReady || isInitializing}
             className="rounded-2xl border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
@@ -52,7 +66,23 @@ function CameraPanel({
         </div>
       </div>
 
-      <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      {(cameraError || modelLoadMessage || isInitializing) && (
+        <div className="mx-5 mt-4 rounded-2xl border px-4 py-3 text-sm" style={{ borderColor: "rgba(239,68,68,0.25)", background: cameraError ? "rgba(239,68,68,0.08)" : "var(--bg-panel-soft)", color: cameraError ? "#fca5a5" : "var(--text-secondary)" }}>
+          {cameraError || modelLoadMessage || "Starting camera..."}
+          {cameraError && (
+            <button
+              type="button"
+              onClick={onRetryCamera}
+              className="ml-3 rounded-lg border px-3 py-1 text-xs font-medium"
+              style={{ borderColor: "var(--border-color)", color: "var(--text-primary)" }}
+            >
+              Retry camera
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_320px] lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="relative overflow-hidden rounded-[28px] border" style={{ borderColor: "var(--border-color)", background: "var(--bg-app)" }}>
           <div className="relative">
             <video ref={videoRef} className="w-full" playsInline muted />
@@ -60,8 +90,11 @@ function CameraPanel({
           </div>
 
           {!cameraReady && !cameraError && !isInitializing && (
-            <div className="absolute inset-0 flex items-center justify-center" style={{ background: "var(--bg-app)" }}>
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>Camera not started</p>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center" style={{ background: "var(--bg-app)" }}>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>Camera unavailable</p>
+              <button type="button" onClick={onRetryCamera} className="rounded-xl px-4 py-2 text-sm text-white" style={{ background: "var(--accent-from)" }}>
+                Try again
+              </button>
             </div>
           )}
         </div>
@@ -71,10 +104,10 @@ function CameraPanel({
             <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Instant metrics</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
               {[
-                { label: "Focus", value: liveMetrics.focusScore, tone: "sky" },
-                { label: "Fatigue", value: `${liveMetrics.fatigueScore}%`, tone: liveMetrics.fatigueScore >= 55 ? "orange" : "emerald" },
-                { label: "Attention", value: liveMetrics.attentionScore, tone: "violet" },
-                { label: "Blink rate", value: `${liveMetrics.blinkRate}/m`, tone: "slate" },
+                { label: "Focus", value: liveMetrics.focusScore },
+                { label: "Fatigue", value: `${liveMetrics.fatigueScore}%` },
+                { label: "Attention", value: liveMetrics.attentionScore },
+                { label: "Blink rate", value: `${liveMetrics.blinkRate}/m` },
               ].map((m) => (
                 <div key={m.label} className="rounded-xl border p-3" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel-soft)" }}>
                   <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{m.label}</p>

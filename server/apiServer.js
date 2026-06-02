@@ -6,6 +6,20 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { URL } from "node:url";
+import {
+  checkDbConnection,
+  findUserByEmail,
+  findUserById,
+  initDb,
+  insertUser,
+  isDatabaseConfigured,
+  listMonitoringSessions,
+  patchMonitoringSession,
+  deleteMonitoringSession,
+  syncMonitoringSessions,
+  updateUserPassword,
+  updateUserProfile,
+} from "./db/index.js";
 
 function loadEnvFile() {
   const envPath = path.resolve(process.cwd(), ".env");
@@ -40,10 +54,9 @@ function loadEnvFile() {
 }
 
 const envLoaded = loadEnvFile();
-const PORT = Number(process.env.PORT || process.env.GEMINI_PORT || 8787);
+const PORT = Number(process.env.PORT || process.env.API_PORT || 8787);
 const AUTH_SECRET = process.env.JWT_SECRET || "aurasense-local-dev-secret";
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7;
-const USER_STORE_PATH = path.resolve(process.cwd(), "server", "users.json");
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || process.env.CORS_ORIGIN || "*";
 const REGISTRATION_ENABLED = process.env.REGISTRATION_ENABLED !== "false";
 const DEMO_AUTH_ENABLED = process.env.DEMO_AUTH_ENABLED === "true";
@@ -71,7 +84,7 @@ const requestBuckets = new Map();
 
 function setCorsHeaders(response) {
   response.setHeader("Access-Control-Allow-Origin", FRONTEND_ORIGIN);
-  response.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  response.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
   response.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("X-Frame-Options", "DENY");
@@ -172,32 +185,6 @@ function tryServeBuiltAsset(requestUrl, response) {
   return false;
 }
 
-function ensureUserStore() {
-  const dir = path.dirname(USER_STORE_PATH);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  if (!fs.existsSync(USER_STORE_PATH)) {
-    fs.writeFileSync(USER_STORE_PATH, JSON.stringify({ users: [] }, null, 2));
-  }
-}
-
-function readUsers() {
-  ensureUserStore();
-  try {
-    const raw = fs.readFileSync(USER_STORE_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed.users) ? parsed.users : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeUsers(users) {
-  ensureUserStore();
-  fs.writeFileSync(USER_STORE_PATH, JSON.stringify({ users }, null, 2));
-}
-
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
   const digest = crypto.pbkdf2Sync(password, salt, 120000, 64, "sha512").toString("hex");
   return `${salt}:${digest}`;
@@ -282,15 +269,14 @@ function getBearerToken(request) {
   return authHeader.slice(7);
 }
 
-function getAuthenticatedUser(request) {
+async function getAuthenticatedUser(request) {
   const token = getBearerToken(request);
   if (!token) {
     throw new Error("Missing token");
   }
 
   const payload = verifyToken(token);
-  const users = readUsers();
-  const user = users.find((entry) => entry.id === payload.sub);
+  const user = await findUserById(payload.sub);
 
   if (!user) {
     throw new Error("User not found");
@@ -329,6 +315,14 @@ function createAuthPayload(user) {
     token,
     user: sanitizeUser(user),
   };
+}
+
+async function requireAuthUser(request) {
+  const user = await getAuthenticatedUser(request);
+  if (user.id === DEMO_USER.id && DEMO_AUTH_ENABLED) {
+    throw new Error("Demo user cannot use cloud session sync.");
+  }
+  return user;
 }
 
 const server = http.createServer(async (request, response) => {
@@ -411,6 +405,7 @@ const server = http.createServer(async (request, response) => {
           <li>Health check: <a href="/api/health">/api/health</a></li>
           <li>Login route: <code>/api/auth/login</code></li>
           <li>Register route: <code>/api/auth/register</code></li>
+          <li>Data is stored in Neon Postgres (<code>DATABASE_URL</code>).</li>
           <li>AI coaching is handled client-side via Groq.</li>
         </ul>
         <p>
@@ -426,9 +421,12 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (request.method === "GET" && requestUrl.pathname === "/api/health") {
+    const databaseConnected = isDatabaseConfigured() ? await checkDbConnection() : false;
     sendJson(response, 200, {
       ok: true,
       envLoaded,
+      databaseConfigured: isDatabaseConfigured(),
+      databaseConnected,
       authEnabled: true,
       registrationEnabled: REGISTRATION_ENABLED,
       demoAuthEnabled: DEMO_AUTH_ENABLED,
@@ -469,9 +467,8 @@ const server = http.createServer(async (request, response) => {
         return;
       }
 
-      const users = readUsers();
       const normalizedEmail = String(email).trim().toLowerCase();
-      const existingUser = users.find((user) => user.email === normalizedEmail);
+      const existingUser = await findUserByEmail(normalizedEmail);
 
       if (existingUser) {
         sendJson(response, 409, { ok: false, error: "An account with this email already exists." });
@@ -486,8 +483,7 @@ const server = http.createServer(async (request, response) => {
         createdAt: new Date().toISOString(),
       };
 
-      users.push(user);
-      writeUsers(users);
+      await insertUser(user);
       sendJson(response, 201, createAuthPayload(user));
     } catch (error) {
       sendJson(response, 500, {
@@ -522,8 +518,7 @@ const server = http.createServer(async (request, response) => {
         return;
       }
 
-      const users = readUsers();
-      const user = users.find((entry) => entry.email === normalizedEmail);
+      const user = await findUserByEmail(normalizedEmail);
 
       if (!user || !verifyPassword(String(password || ""), user.passwordHash)) {
         sendJson(response, 401, { ok: false, error: "Invalid email or password." });
@@ -545,12 +540,195 @@ const server = http.createServer(async (request, response) => {
       const token = getBearerToken(request);
       const payload = verifyToken(token);
       const user =
-        payload.sub === DEMO_USER.id && DEMO_AUTH_ENABLED ? getDemoUser() : getAuthenticatedUser(request);
+        payload.sub === DEMO_USER.id && DEMO_AUTH_ENABLED
+          ? getDemoUser()
+          : await getAuthenticatedUser(request);
       sendJson(response, 200, { ok: true, user: sanitizeUser(user) });
     } catch {
       sendJson(response, 401, { ok: false, error: "Unauthorized" });
     }
     return;
+  }
+
+  if (request.method === "POST" && requestUrl.pathname === "/api/auth/migrate") {
+    try {
+      if (!REGISTRATION_ENABLED) {
+        sendJson(response, 403, { ok: false, error: "Registration is disabled." });
+        return;
+      }
+
+      const rawBody = await readBody(request);
+      const { name, email, password } = JSON.parse(rawBody || "{}");
+      const normalizedEmail = String(email || "").trim().toLowerCase();
+
+      if (!name || !normalizedEmail || !password) {
+        sendJson(response, 400, { ok: false, error: "Name, email, and password are required." });
+        return;
+      }
+
+      const existing = await findUserByEmail(normalizedEmail);
+
+      if (existing) {
+        if (!verifyPassword(String(password), existing.passwordHash)) {
+          sendJson(response, 401, { ok: false, error: "Account exists but password does not match." });
+          return;
+        }
+        sendJson(response, 200, createAuthPayload(existing));
+        return;
+      }
+
+      const user = {
+        id: crypto.randomUUID(),
+        name: String(name).trim(),
+        email: normalizedEmail,
+        passwordHash: hashPassword(String(password)),
+        createdAt: new Date().toISOString(),
+      };
+      await insertUser(user);
+      sendJson(response, 201, createAuthPayload(user));
+    } catch (error) {
+      sendJson(response, 500, {
+        ok: false,
+        error: error instanceof Error ? error.message : "Migration failed.",
+      });
+    }
+    return;
+  }
+
+  if (request.method === "PUT" && requestUrl.pathname === "/api/auth/password") {
+    try {
+      const user = await requireAuthUser(request);
+      const rawBody = await readBody(request);
+      const { currentPassword, newPassword } = JSON.parse(rawBody || "{}");
+
+      if (!currentPassword || !newPassword) {
+        sendJson(response, 400, { ok: false, error: "Current and new password are required." });
+        return;
+      }
+
+      if (String(newPassword).length < 6) {
+        sendJson(response, 400, { ok: false, error: "New password must be at least 6 characters." });
+        return;
+      }
+
+      const freshUser = await findUserById(user.id);
+      if (!freshUser || !verifyPassword(String(currentPassword), freshUser.passwordHash)) {
+        sendJson(response, 401, { ok: false, error: "Current password is incorrect." });
+        return;
+      }
+
+      await updateUserPassword(user.id, hashPassword(String(newPassword)));
+      sendJson(response, 200, { ok: true });
+    } catch (error) {
+      sendJson(response, 401, {
+        ok: false,
+        error: error instanceof Error ? error.message : "Unauthorized",
+      });
+    }
+    return;
+  }
+
+  if (request.method === "PUT" && requestUrl.pathname === "/api/auth/profile") {
+    try {
+      const token = getBearerToken(request);
+      if (!token) {
+        sendJson(response, 401, { ok: false, error: "Missing token." });
+        return;
+      }
+      const payload = verifyToken(token);
+
+      if (payload.sub === DEMO_USER.id) {
+        sendJson(response, 403, { ok: false, error: "Demo user profile cannot be edited." });
+        return;
+      }
+
+      const existing = await findUserById(payload.sub);
+
+      if (!existing) {
+        sendJson(response, 404, { ok: false, error: "User not found." });
+        return;
+      }
+
+      const rawBody = await readBody(request);
+      const { name, email } = JSON.parse(rawBody || "{}");
+
+      const updated = await updateUserProfile(payload.sub, { name, email });
+      sendJson(response, 200, { ok: true, user: sanitizeUser(updated) });
+    } catch (error) {
+      sendJson(response, 401, { ok: false, error: "Unauthorized" });
+    }
+    return;
+  }
+
+  if (request.method === "GET" && requestUrl.pathname === "/api/openapi.json") {
+    sendJson(response, 200, {
+      openapi: "3.0.3",
+      info: { title: "AuraSense API", version: "1.0.0" },
+      paths: {
+        "/api/health": { get: { summary: "Health check" } },
+        "/api/auth/register": { post: { summary: "Register" } },
+        "/api/auth/login": { post: { summary: "Login" } },
+        "/api/auth/me": { get: { summary: "Current user" } },
+        "/api/auth/migrate": { post: { summary: "Migrate local account to cloud" } },
+        "/api/auth/profile": { put: { summary: "Update profile" } },
+        "/api/auth/password": { put: { summary: "Change password" } },
+        "/api/sessions": { get: { summary: "List sessions" }, put: { summary: "Sync sessions" } },
+        "/api/sessions/{id}": {
+          patch: { summary: "Update session metadata" },
+          delete: { summary: "Delete session" },
+        },
+      },
+    });
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/sessions" || requestUrl.pathname.startsWith("/api/sessions/")) {
+    try {
+      const user = await requireAuthUser(request);
+
+      if (request.method === "GET" && requestUrl.pathname === "/api/sessions") {
+        const sessions = await listMonitoringSessions(user.id);
+        sendJson(response, 200, { ok: true, sessions });
+        return;
+      }
+
+      if (request.method === "PUT" && requestUrl.pathname === "/api/sessions") {
+        const rawBody = await readBody(request);
+        const { sessions } = JSON.parse(rawBody || "{}");
+        if (!Array.isArray(sessions)) {
+          sendJson(response, 400, { ok: false, error: "sessions array required." });
+          return;
+        }
+        const merged = await syncMonitoringSessions(user.id, sessions);
+        sendJson(response, 200, { ok: true, sessions: merged });
+        return;
+      }
+
+      const sessionMatch = requestUrl.pathname.match(/^\/api\/sessions\/([^/]+)$/);
+      if (sessionMatch) {
+        const sessionId = decodeURIComponent(sessionMatch[1]);
+
+        if (request.method === "DELETE") {
+          await deleteMonitoringSession(user.id, sessionId);
+          sendJson(response, 200, { ok: true });
+          return;
+        }
+
+        if (request.method === "PATCH") {
+          const rawBody = await readBody(request);
+          const patch = JSON.parse(rawBody || "{}");
+          const next = await patchMonitoringSession(user.id, sessionId, patch);
+          sendJson(response, 200, { ok: true, sessions: next });
+          return;
+        }
+      }
+    } catch (error) {
+      sendJson(response, 401, {
+        ok: false,
+        error: error instanceof Error ? error.message : "Unauthorized",
+      });
+      return;
+    }
   }
 
   if (request.method === "GET" && tryServeBuiltAsset(requestUrl, response)) {
@@ -563,14 +741,36 @@ const server = http.createServer(async (request, response) => {
   });
 });
 
-server.listen(PORT, () => {
-  const envNote = envLoaded ? ".env loaded" : ".env not found";
-  const buildNote = shouldServeBuiltApp() ? "built frontend available" : "API-only mode";
-  const authNote =
-    AUTH_SECRET === "aurasense-local-dev-secret"
-      ? "warning: default JWT secret in use"
-      : "JWT secret configured";
-  console.log(
-    `AuraSense server listening on http://localhost:${PORT} (${envNote}, ${buildNote}, ${authNote})`
-  );
-});
+async function startServer() {
+  if (!isDatabaseConfigured()) {
+    console.error(
+      "FATAL: DATABASE_URL is not set. Create a free Neon Postgres database and add DATABASE_URL to .env or Render."
+    );
+    process.exit(1);
+  }
+
+  try {
+    await initDb();
+    const connected = await checkDbConnection();
+    if (!connected) {
+      throw new Error("Could not connect to Postgres. Check DATABASE_URL and Neon project status.");
+    }
+  } catch (error) {
+    console.error("FATAL: Database initialization failed:", error.message);
+    process.exit(1);
+  }
+
+  server.listen(PORT, () => {
+    const envNote = envLoaded ? ".env loaded" : ".env not found";
+    const buildNote = shouldServeBuiltApp() ? "built frontend available" : "API-only mode";
+    const authNote =
+      AUTH_SECRET === "aurasense-local-dev-secret"
+        ? "warning: default JWT secret in use"
+        : "JWT secret configured";
+    console.log(
+      `AuraSense server listening on http://localhost:${PORT} (${envNote}, ${buildNote}, ${authNote}, postgres connected)`
+    );
+  });
+}
+
+startServer();

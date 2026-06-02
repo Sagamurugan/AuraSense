@@ -99,7 +99,7 @@ function AuthScreen({ auth }) {
             {[
               { title: "Local-first", subtitle: "Privacy", desc: "All face analysis stays in-browser. Your data never leaves your machine." },
               { title: "Groq-powered", subtitle: "AI Coach", desc: "Real-time coaching powered by Groq's ultra-fast inference. Bring your own API key." },
-              { title: "Encrypted", subtitle: "Security", desc: "Passwords are hashed locally with SHA-256. Sessions expire after 24 hours." },
+              { title: "Encrypted", subtitle: "Security", desc: "Passwords are hashed on the server. Your login token is kept in sessionStorage only." },
             ].map((card) => (
               <div key={card.title} className="rounded-3xl border p-5" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel)" }}>
                 <p className="text-[10px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{card.subtitle}</p>

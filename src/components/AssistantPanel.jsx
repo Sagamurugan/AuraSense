@@ -102,7 +102,7 @@ function AssistantPanel({
         <div className="pointer-events-none fixed inset-0 z-40" style={{ background: "var(--overlay)" }} />
       )}
 
-      <div className="fixed bottom-5 right-5 z-50 flex items-end justify-end">
+      <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-50 flex items-end justify-end lg:bottom-5 lg:right-5">
         {isOpen && (
           <div
             className="pointer-events-auto mb-4 w-[min(92vw,380px)] overflow-hidden rounded-[28px] border shadow-2xl backdrop-blur-xl"

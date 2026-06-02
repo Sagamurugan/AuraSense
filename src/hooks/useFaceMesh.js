@@ -9,6 +9,7 @@ function useFaceMesh({
   onMetricsUpdate,
   onTrendSample,
   enabled = true,
+  showMeshOverlay = true,
 }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -22,6 +23,16 @@ function useFaceMesh({
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [modelLoadMessage, setModelLoadMessage] = useState("");
+  const [retryToken, setRetryToken] = useState(0);
+  const showMeshRef = useRef(showMeshOverlay);
+
+  const retryCamera = useCallback(() => {
+    setCameraError(null);
+    setCameraReady(false);
+    setIsInitializing(true);
+    setRetryToken((value) => value + 1);
+  }, []);
 
   const emitLiveMetrics = useCallback((durationSeconds, snapshot) => {
     const liveMetrics = {
@@ -80,6 +91,10 @@ function useFaceMesh({
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    showMeshRef.current = showMeshOverlay;
+  }, [showMeshOverlay]);
 
   const drawLandmarks = (context, canvas, landmarks) => {
     context.fillStyle = "rgba(148, 163, 184, 0.55)";
@@ -175,7 +190,9 @@ function useFaceMesh({
 
     const init = async () => {
       try {
+        setModelLoadMessage("Downloading face model...");
         await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js");
+        setModelLoadMessage("Initializing camera...");
 
         if (cancelled || !videoEl || !canvasEl) {
           return;
@@ -253,7 +270,9 @@ function useFaceMesh({
               now,
             });
 
-            drawLandmarks(context, canvas, landmarks);
+            if (showMeshRef.current) {
+              drawLandmarks(context, canvas, landmarks);
+            }
             drawOverlay(context, sessionActiveRef.current, statsRef.current);
 
             if (sessionActiveRef.current && now - statsRef.current.lastSampleAt >= 5000) {
@@ -283,6 +302,7 @@ function useFaceMesh({
         faceMeshRef.current = faceMesh;
         setCameraReady(true);
         setIsInitializing(false);
+        setModelLoadMessage("");
 
         const loop = async () => {
           if (cancelled || !mountedRef.current || !faceMeshRef.current) {
@@ -327,12 +347,14 @@ function useFaceMesh({
         videoEl.load();
       }
     };
-  }, [enabled, sessionActiveRef, sessionStartRef, statsRef, emitLiveMetrics]);
+  }, [enabled, retryToken, sessionActiveRef, sessionStartRef, statsRef, emitLiveMetrics]);
 
   return {
     cameraReady,
     cameraError,
     isInitializing,
+    modelLoadMessage,
+    retryCamera,
     videoRef,
     canvasRef,
   };

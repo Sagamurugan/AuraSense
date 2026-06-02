@@ -8,8 +8,10 @@
   },
   "scripts": {
     "dev": "vite",
-    "server": "node server/geminiServer.js",
-    "start": "node server/geminiServer.js",
+    "server": "node server/apiServer.js",
+    "start": "node server/apiServer.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -22,6 +24,7 @@
     "react": "^19.2.4",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.4",
+    "pg": "^8.16.0",
     "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
@@ -33,6 +36,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
-    "vite": "^8.0.4"
+    "vite": "^8.0.4",
+    "vitest": "^3.2.4"
   }
 }

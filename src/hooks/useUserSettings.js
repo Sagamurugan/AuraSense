@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS = {
   baselineBlinkRate: 16,
   autoCalibrated: false,
   debugMode: false,
+  showMeshOverlay: true,
 };
 
 const MIN_SETTINGS = {
@@ -41,6 +42,9 @@ function validateSetting(key, value) {
     return Boolean(value);
   }
   if (key === "debugMode") {
+    return Boolean(value);
+  }
+  if (key === "showMeshOverlay") {
     return Boolean(value);
   }
   return value;

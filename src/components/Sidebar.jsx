@@ -46,9 +46,9 @@ function Sidebar({ focusScore, totalSessions, activeView, onSelectView, onClose 
   return (
     <>
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r transition-all duration-300 lg:static lg:z-auto ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r transition-all duration-300 lg:static lg:z-auto lg:translate-x-0 ${
           collapsed ? "w-[68px]" : "w-[260px]"
-        }`}
+        } ${onClose ? "translate-x-0" : "-translate-x-full"}`}
         style={{
           background: "var(--sidebar-bg)",
           borderColor: "var(--border-color)",
@@ -85,6 +85,8 @@ function Sidebar({ focusScore, totalSessions, activeView, onSelectView, onClose 
                       <button
                         key={item.id}
                         type="button"
+                        title={collapsed ? item.label : undefined}
+                        aria-label={item.label}
                         onClick={() => {
                           onSelectView(item.id);
                           onClose?.();
@@ -159,8 +161,8 @@ function Sidebar({ focusScore, totalSessions, activeView, onSelectView, onClose 
       </aside>
 
       <div
-        className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-        style={{ display: onClose ? "block" : "none" }}
+        className="fixed inset-0 z-40 lg:hidden"
+        style={{ display: onClose ? "block" : "none", background: "var(--overlay)" }}
         onClick={onClose}
       />
     </>

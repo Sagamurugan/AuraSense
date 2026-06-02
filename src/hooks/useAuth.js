@@ -1,65 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  clearLegacyAuthStorage,
+  readAuthSession,
+  writeAuthSession,
+} from "../utils/authStorage";
 
-const USERS_KEY = "aurasense_users";
-const SESSION_KEY = "aurasense_session";
 const API_BASE_URL =
   typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL
     ? import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, "")
     : "";
 
-function generateId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function generateToken() {
-  const arr = new Uint8Array(32);
-  crypto.getRandomValues(arr);
-  return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function hashPassword(password) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function readUsers() {
-  try {
-    const raw = localStorage.getItem(USERS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeUsers(users) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
-
-function readSession() {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    if (Date.now() > session.expiresAt) {
-      localStorage.removeItem(SESSION_KEY);
-      return null;
-    }
-    return session;
-  } catch {
-    localStorage.removeItem(SESSION_KEY);
-    return null;
-  }
-}
-
-function writeSession(session) {
-  if (session) {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  } else {
-    localStorage.removeItem(SESSION_KEY);
-  }
-}
+export const requiresBackend = Boolean(API_BASE_URL);
 
 export function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -73,37 +24,36 @@ export function validatePassword(password) {
 }
 
 function useAuth() {
-  const [session, setSession] = useState(() => readSession());
+  const [session, setSession] = useState(() => readAuthSession());
   const [error, setError] = useState("");
-
-  const storedOnMount = readSession();
-  const needsBackendCheck = Boolean(storedOnMount?.token && API_BASE_URL);
+  const needsBackendCheck = Boolean(session?.token && API_BASE_URL);
   const [isChecking, setIsChecking] = useState(needsBackendCheck);
 
   const apiFetch = useCallback(async (path, options = {}) => {
-    if (!API_BASE_URL) return null;
-    try {
-      const res = await fetch(`${API_BASE_URL}${path}`, {
-        ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...options.headers,
-        },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      return data;
-    } catch (err) {
-      if (err.name === "TypeError") return null;
-      throw err;
+    if (!API_BASE_URL) {
+      throw new Error("VITE_API_BASE_URL is not configured.");
     }
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
   }, []);
 
   useEffect(() => {
-    if (!needsBackendCheck) return;
+    clearLegacyAuthStorage();
+  }, []);
 
-    const stored = readSession();
-    if (!stored || !stored.token || !API_BASE_URL) return;
+  useEffect(() => {
+    if (!needsBackendCheck) return undefined;
+
+    const stored = readAuthSession();
+    if (!stored?.token) return undefined;
 
     apiFetch("/api/auth/me", {
       headers: { Authorization: `Bearer ${stored.token}` },
@@ -114,188 +64,132 @@ function useAuth() {
             ...stored,
             name: data.user.name,
             email: data.user.email,
-            authMode: "backend",
           };
-          writeSession(updated);
+          writeAuthSession(updated);
           setSession(updated);
         }
       })
       .catch(() => {
-        // Backend unreachable, keep stored session
+        writeAuthSession(null);
+        setSession(null);
       })
       .finally(() => {
         setIsChecking(false);
       });
+
+    return undefined;
   }, [apiFetch, needsBackendCheck]);
 
-  const register = useCallback(async ({ name, email, password }) => {
-    setError("");
+  const register = useCallback(
+    async ({ name, email, password }) => {
+      setError("");
 
-    if (!name || !name.trim()) {
-      setError("Name is required.");
-      throw new Error("Name is required.");
-    }
-
-    const trimmedEmail = email.trim().toLowerCase();
-    if (!validateEmail(trimmedEmail)) {
-      setError("Invalid email format.");
-      throw new Error("Invalid email format.");
-    }
-
-    const passwordError = validatePassword(password);
-    if (passwordError) {
-      setError(passwordError);
-      throw new Error(passwordError);
-    }
-
-    if (API_BASE_URL) {
-      try {
-        const data = await apiFetch("/api/auth/register", {
-          method: "POST",
-          body: JSON.stringify({ name: name.trim(), email: trimmedEmail, password }),
-        });
-        if (data?.ok) {
-          const sessionData = {
-            userId: data.user.id,
-            name: data.user.name,
-            email: data.user.email,
-            token: data.token,
-            expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-            authMode: "backend",
-          };
-          writeSession(sessionData);
-          setSession(sessionData);
-          return sessionData;
-        }
-        if (data?.error) {
-          setError(data.error);
-          throw new Error(data.error);
-        }
-      } catch (err) {
-        if (err.message !== "Failed to fetch") {
-          setError(err.message);
-          throw err;
-        }
+      if (!requiresBackend) {
+        const msg = "Set VITE_API_BASE_URL so accounts are stored on the server.";
+        setError(msg);
+        throw new Error(msg);
       }
-    }
 
-    const users = readUsers();
-    if (users.some((u) => u.email === trimmedEmail)) {
-      setError("An account with this email already exists.");
-      throw new Error("An account with this email already exists.");
-    }
-
-    const hashed = await hashPassword(password);
-    const user = {
-      id: generateId(),
-      name: name.trim(),
-      email: trimmedEmail,
-      hashedPassword: hashed,
-      createdAt: Date.now(),
-    };
-
-    users.push(user);
-    writeUsers(users);
-
-    const token = generateToken();
-    const sessionData = {
-      userId: user.id,
-      name: user.name,
-      email: user.email,
-      token,
-      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-      authMode: "local",
-    };
-    writeSession(sessionData);
-    setSession(sessionData);
-    return sessionData;
-  }, [apiFetch]);
-
-  const login = useCallback(async ({ email, password }) => {
-    setError("");
-
-    const trimmedEmail = email.trim().toLowerCase();
-    if (!trimmedEmail || !password) {
-      setError("Email and password are required.");
-      throw new Error("Email and password are required.");
-    }
-
-    if (API_BASE_URL) {
-      try {
-        const data = await apiFetch("/api/auth/login", {
-          method: "POST",
-          body: JSON.stringify({ email: trimmedEmail, password }),
-        });
-        if (data?.ok) {
-          const sessionData = {
-            userId: data.user.id,
-            name: data.user.name,
-            email: data.user.email,
-            token: data.token,
-            expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-            authMode: "backend",
-          };
-          writeSession(sessionData);
-          setSession(sessionData);
-          return sessionData;
-        }
-        if (data?.error) {
-          setError(data.error);
-          throw new Error(data.error);
-        }
-      } catch (err) {
-        if (err.message !== "Failed to fetch") {
-          setError(err.message);
-          throw err;
-        }
+      if (!name?.trim()) {
+        setError("Name is required.");
+        throw new Error("Name is required.");
       }
-    }
 
-    const users = readUsers();
-    const user = users.find((u) => u.email === trimmedEmail);
-    if (!user) {
-      setError("No account found with this email.");
-      throw new Error("No account found with this email.");
-    }
+      const trimmedEmail = email.trim().toLowerCase();
+      if (!validateEmail(trimmedEmail)) {
+        setError("Invalid email format.");
+        throw new Error("Invalid email format.");
+      }
 
-    const hashed = await hashPassword(password);
-    if (hashed !== user.hashedPassword) {
-      setError("Incorrect password.");
-      throw new Error("Incorrect password.");
-    }
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        setError(passwordError);
+        throw new Error(passwordError);
+      }
 
-    const token = generateToken();
-    const sessionData = {
-      userId: user.id,
-      name: user.name,
-      email: user.email,
-      token,
-      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-      authMode: "local",
-    };
-    writeSession(sessionData);
-    setSession(sessionData);
-    return sessionData;
-  }, [apiFetch]);
+      const data = await apiFetch("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ name: name.trim(), email: trimmedEmail, password }),
+      });
+
+      const sessionData = {
+        userId: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        token: data.token,
+        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      };
+      writeAuthSession(sessionData);
+      setSession(sessionData);
+      return sessionData;
+    },
+    [apiFetch]
+  );
+
+  const login = useCallback(
+    async ({ email, password }) => {
+      setError("");
+
+      if (!requiresBackend) {
+        const msg = "Set VITE_API_BASE_URL so accounts are stored on the server.";
+        setError(msg);
+        throw new Error(msg);
+      }
+
+      const trimmedEmail = email.trim().toLowerCase();
+      if (!trimmedEmail || !password) {
+        setError("Email and password are required.");
+        throw new Error("Email and password are required.");
+      }
+
+      const data = await apiFetch("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email: trimmedEmail, password }),
+      });
+
+      const sessionData = {
+        userId: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        token: data.token,
+        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      };
+      writeAuthSession(sessionData);
+      setSession(sessionData);
+      return sessionData;
+    },
+    [apiFetch]
+  );
 
   const logout = useCallback(() => {
-    writeSession(null);
+    writeAuthSession(null);
     setSession(null);
     setError("");
+  }, []);
+
+  const updateAuthSessionProfile = useCallback((patch) => {
+    setSession((current) => {
+      if (!current) return current;
+      const next = { ...current, ...patch };
+      writeAuthSession(next);
+      return next;
+    });
   }, []);
 
   return useMemo(
     () => ({
       user: session ? { id: session.userId, name: session.name, email: session.email } : null,
+      token: session?.token ?? null,
       isChecking,
-      isAuthenticated: Boolean(session),
+      isAuthenticated: Boolean(session?.token),
       error,
-      authMode: session?.authMode || null,
+      requiresBackend,
       register,
       login,
       logout,
+      updateAuthSessionProfile,
     }),
-    [error, isChecking, login, logout, register, session]
+    [error, isChecking, login, logout, register, session, updateAuthSessionProfile]
   );
 }
 

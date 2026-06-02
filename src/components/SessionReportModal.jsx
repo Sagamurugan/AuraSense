@@ -2,10 +2,10 @@ import { formatDuration } from "../utils/analytics";
 
 function MetricCard({ label, value, helper }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-      <p className="text-xs uppercase tracking-[0.24em] text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
-      <p className="mt-1 text-sm text-slate-400">{helper}</p>
+    <div className="rounded-2xl border p-4" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel-soft)" }}>
+      <p className="text-xs uppercase tracking-[0.24em]" style={{ color: "var(--text-muted)" }}>{label}</p>
+      <p className="mt-2 text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>{value}</p>
+      <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{helper}</p>
     </div>
   );
 }
@@ -18,24 +18,21 @@ function SessionReportModal({ report, onClose }) {
   const { session, insights } = report;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md" style={{ background: "var(--overlay)" }}>
       <div className="panel-card max-h-[90vh] w-full max-w-5xl overflow-y-auto p-6">
-        <div className="flex flex-col gap-4 border-b border-white/10 pb-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-start lg:justify-between" style={{ borderColor: "var(--border-color)" }}>
           <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-slate-400">
-              Session Report
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">
-              End-of-session performance summary
-            </h2>
-            <p className="mt-2 text-sm text-slate-400">
+            <p className="text-xs uppercase tracking-[0.28em]" style={{ color: "var(--text-muted)" }}>Session Report</p>
+            <h2 className="mt-2 text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>End-of-session performance summary</h2>
+            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
               Real metrics captured from the session that just ended on {session.date}.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
+            className="rounded-2xl border px-4 py-2 text-sm font-medium transition shell-hover"
+            style={{ borderColor: "var(--border-color)", background: "var(--bg-panel-soft)", color: "var(--text-primary)" }}
           >
             Close
           </button>
@@ -115,11 +112,11 @@ function SessionReportModal({ report, onClose }) {
           />
         </div>
 
-        <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-          <p className="text-sm font-semibold text-white">Key takeaways</p>
+        <div className="mt-5 rounded-3xl border p-5" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel-soft)" }}>
+          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Key takeaways</p>
           <div className="mt-4 grid gap-3">
             {insights.map((insight, index) => (
-              <div key={`${session.id}-insight-${index}`} className="rounded-2xl bg-slate-950/50 p-4 text-sm text-slate-300">
+              <div key={`${session.id}-insight-${index}`} className="rounded-2xl p-4 text-sm" style={{ background: "var(--bg-elevated)", color: "var(--text-secondary)" }}>
                 {insight}
               </div>
             ))}

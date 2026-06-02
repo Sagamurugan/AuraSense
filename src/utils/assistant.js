@@ -113,8 +113,8 @@ export function getAssistantReply(question, context) {
     return `You can rest if you feel discomfort, but the metrics do not show an urgent need right now. Focus is ${liveMetrics.focusScore} and fatigue is ${liveMetrics.fatigueScore}%.`;
   }
 
-  if (q.includes("gemini") && q.includes("work")) {
-    return "Gemini is used for richer coaching responses, but your live session metrics still come from AuraSense itself. If Gemini is unavailable, the local assistant should keep answering based on the same realtime data.";
+  if (q.includes("groq") && q.includes("work")) {
+    return "Groq powers AI coaching responses in the browser. Your live session metrics still come from AuraSense locally. If Groq is unavailable, the local assistant answers from the same realtime data.";
   }
 
   if (q.includes("focus")) {

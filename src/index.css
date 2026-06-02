@@ -108,5 +108,9 @@ video {
   backdrop-filter: blur(8px);
 }
 
+.shell-hover:hover {
+  background: color-mix(in srgb, var(--bg-panel-soft) 95%, var(--text-primary) 5%) !important;
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 @custom-variant light (&:where(.light, .light *));

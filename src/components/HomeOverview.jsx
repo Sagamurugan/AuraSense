@@ -1,9 +1,9 @@
 function OverviewMetric({ label, value, helper }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-      <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{label}</p>
-      <p className="mt-3 text-3xl font-semibold text-white">{value}</p>
-      <p className="mt-2 text-sm text-slate-400">{helper}</p>
+    <div className="rounded-2xl border p-4" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel-soft)" }}>
+      <p className="text-xs uppercase tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>{label}</p>
+      <p className="mt-3 text-3xl font-semibold" style={{ color: "var(--text-primary)" }}>{value}</p>
+      <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>{helper}</p>
     </div>
   );
 }
@@ -14,10 +14,10 @@ function HomeOverview({ liveMetrics, alerts, dashboardMetrics, insights }) {
 
   return (
     <section className="panel-card p-5">
-      <div className="border-b border-white/10 pb-5">
-        <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Overview</p>
-        <h2 className="mt-2 text-xl font-semibold text-white">Primary session status</h2>
-        <p className="mt-2 text-sm text-slate-400">
+      <div className="border-b pb-5" style={{ borderColor: "var(--border-color)" }}>
+        <p className="text-xs uppercase tracking-[0.28em]" style={{ color: "var(--text-muted)" }}>Overview</p>
+        <h2 className="mt-2 text-xl font-semibold" style={{ color: "var(--text-primary)" }}>Primary session status</h2>
+        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
           The home page stays focused on the live decisions you need now, while the deeper
           history and charting stay in their own sections.
         </p>
@@ -47,12 +47,12 @@ function HomeOverview({ liveMetrics, alerts, dashboardMetrics, insights }) {
       </div>
 
       <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
-        <div className="rounded-3xl border border-white/10 bg-slate-950/40 p-5">
-          <p className="text-sm text-slate-400">Current guidance</p>
-          <p className="mt-2 text-2xl font-semibold text-white">
+        <div className="rounded-3xl border p-5" style={{ borderColor: "var(--border-color)", background: "var(--bg-elevated)" }}>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Current guidance</p>
+          <p className="mt-2 text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
             {liveMetrics.focusScore >= 75 ? "You can stay in flow" : "A lighter pace is better"}
           </p>
-          <p className="mt-3 text-sm leading-6 text-slate-400">
+          <p className="mt-3 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>
             {topAlert
               ? topAlert.message
               : topInsight?.message ||
@@ -61,17 +61,15 @@ function HomeOverview({ liveMetrics, alerts, dashboardMetrics, insights }) {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-            <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Sessions</p>
-            <p className="mt-3 text-2xl font-semibold text-white">
+          <div className="rounded-3xl border p-4" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel-soft)" }}>
+            <p className="text-xs uppercase tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>Sessions</p>
+            <p className="mt-3 text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
               {dashboardMetrics.totalSessions}
             </p>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-            <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-              Best Focus Window
-            </p>
-            <p className="mt-3 text-2xl font-semibold text-white">
+          <div className="rounded-3xl border p-4" style={{ borderColor: "var(--border-color)", background: "var(--bg-panel-soft)" }}>
+            <p className="text-xs uppercase tracking-[0.22em]" style={{ color: "var(--text-muted)" }}>Best Focus Window</p>
+            <p className="mt-3 text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
               {dashboardMetrics.bestFocusWindow}
             </p>
           </div>

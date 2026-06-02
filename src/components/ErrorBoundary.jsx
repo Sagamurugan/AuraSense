@@ -21,27 +21,29 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
-          <div className="max-w-md rounded-3xl border border-orange-400/20 bg-orange-400/5 p-6 text-center">
+        <div className="flex min-h-screen items-center justify-center p-4" style={{ background: "var(--bg-body)" }}>
+          <div className="max-w-md rounded-3xl border p-6 text-center" style={{ borderColor: "rgba(251,146,60,0.25)", background: "rgba(251,146,60,0.06)" }}>
             <div className="mb-4 text-4xl">⚠️</div>
-            <h2 className="mb-2 text-xl font-semibold text-white">
+            <h2 className="mb-2 text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
               Something went wrong
             </h2>
-            <p className="mb-4 text-sm text-slate-400">
+            <p className="mb-4 text-sm" style={{ color: "var(--text-secondary)" }}>
               {this.state.error?.message || "An unexpected error occurred. Please try again."}
             </p>
             <div className="flex gap-3 justify-center">
               <button
                 type="button"
                 onClick={this.handleRetry}
-                className="rounded-2xl bg-sky-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-sky-400"
+                className="rounded-2xl px-5 py-2 text-sm font-medium text-white transition hover:bg-sky-400"
+                style={{ background: "var(--accent-from)" }}
               >
                 Try Again
               </button>
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="rounded-2xl border border-white/15 bg-white/5 px-5 py-2 text-sm font-medium text-white transition hover:bg-white/10"
+                className="rounded-2xl border px-5 py-2 text-sm font-medium transition"
+                style={{ borderColor: "var(--border-color)", background: "var(--bg-panel-soft)", color: "var(--text-primary)" }}
               >
                 Reload Page
               </button>

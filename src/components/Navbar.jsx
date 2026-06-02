@@ -56,9 +56,11 @@ function Navbar({
   currentView,
   searchValue,
   onSearchChange,
+  searchInputRef,
   user,
   onLogout,
   onToggleSidebar,
+  onOpenProfile,
 }) {
   const getStatusText = () => {
     if (cameraError) return "Camera error";
@@ -85,6 +87,7 @@ function Navbar({
           onClick={onToggleSidebar}
           className="flex h-9 w-9 items-center justify-center rounded-xl lg:hidden"
           style={{ color: "var(--text-secondary)" }}
+          aria-label="Open navigation menu"
         >
           <MenuIcon />
         </button>
@@ -101,12 +104,14 @@ function Navbar({
           >
             <SearchIcon />
             <input
-              type="text"
+              ref={searchInputRef}
+              type="search"
               value={searchValue}
               onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Search sessions, reports, or support prompts"
+              placeholder="Search sessions, reports, or support prompts (press /)"
               className="w-full bg-transparent text-sm outline-none"
               style={{ color: "var(--text-primary)" }}
+              aria-label="Search workspace"
             />
           </div>
 
@@ -122,39 +127,43 @@ function Navbar({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onStartSession}
-            disabled={!cameraReady || sessionActive || isInitializing}
-            className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ background: "linear-gradient(135deg, var(--accent-from), var(--accent-to))" }}
-          >
-            Start
-          </button>
-          <button
-            type="button"
-            onClick={onStopSession}
-            disabled={!sessionActive}
-            className="hidden rounded-full border px-4 py-2 text-sm font-semibold transition md:block disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ borderColor: "var(--border-color)", background: "var(--bg-panel)", color: "var(--text-primary)" }}
-          >
-            Stop
-          </button>
+          {sessionActive ? (
+            <button
+              type="button"
+              onClick={onStopSession}
+              className="rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ borderColor: "var(--border-color)", background: "var(--bg-panel)", color: "var(--text-primary)" }}
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onStartSession}
+              disabled={!cameraReady || isInitializing}
+              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg, var(--accent-from), var(--accent-to))" }}
+            >
+              Start
+            </button>
+          )}
 
           <div
             className="hidden items-center gap-3 rounded-full border px-3 py-1.5 md:flex"
             style={{ borderColor: "var(--border-color)", background: "var(--bg-panel)" }}
           >
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-full text-white"
-              style={{ background: "linear-gradient(135deg, var(--accent-from), var(--accent-to))" }}
-            >
-              <UserIcon />
-            </div>
-            <div className="pr-1">
-              <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Operator</p>
-              <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{user?.name || "User"}</p>
-            </div>
+            <button type="button" onClick={onOpenProfile} className="flex items-center gap-3">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-full text-white"
+                style={{ background: "linear-gradient(135deg, var(--accent-from), var(--accent-to))" }}
+              >
+                <UserIcon />
+              </div>
+              <div className="pr-1 text-left">
+                <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Operator</p>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{user?.name || "User"}</p>
+              </div>
+            </button>
             <button
               type="button"
               onClick={onLogout}
