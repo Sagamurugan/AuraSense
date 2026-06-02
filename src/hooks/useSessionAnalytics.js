@@ -160,48 +160,10 @@ function useSessionAnalytics({ sessionHistory, setSessionHistory }) {
   };
 
   const handleMetricsUpdate = (snapshot) => {
-    setLiveMetrics({
-      blinkCount: snapshot.blinkCount,
-      fatigueScore: snapshot.fatigueScore,
-      focusScore: snapshot.focusScore,
-      blinkRate: snapshot.blinkRate,
-      durationSeconds: snapshot.durationSeconds,
-      faceDetected: snapshot.faceDetected,
-      posture: snapshot.posture,
-      postureScore: snapshot.postureScore,
-      faceAwaySeconds: snapshot.faceAwaySeconds,
-      distractionLevel: snapshot.distractionLevel,
-      distractionEvents: snapshot.distractionEvents,
-      attentionScore: snapshot.attentionScore,
-      headMovementScore: snapshot.headMovementScore,
-      gazeDriftScore: snapshot.gazeDriftScore,
-      gazeDriftLevel: snapshot.gazeDriftLevel,
-      gazeDriftEvents: snapshot.gazeDriftEvents,
-      prolongedClosures: snapshot.prolongedClosures,
-      eyeClosureRisk: snapshot.eyeClosureRisk,
-      yawnEvents: snapshot.yawnEvents,
-      mouthOpenRatio: snapshot.mouthOpenRatio,
-      drowsinessRisk: snapshot.drowsinessRisk,
-      drowsinessScore: snapshot.drowsinessScore,
-      trackingQualityScore: snapshot.trackingQualityScore,
-      signalQuality: snapshot.signalQuality,
-      rawEyeRatio: snapshot.rawEyeRatio,
-      smoothedEyeRatio: snapshot.smoothedEyeRatio,
-      openEyeRatioBaseline: snapshot.openEyeRatioBaseline,
-      eyeClosureRatio: snapshot.eyeClosureRatio,
-      blinkThresholdRatio: snapshot.blinkThresholdRatio,
-      blinkReopenRatio: snapshot.blinkReopenRatio,
-      blinkDrop: snapshot.blinkDrop,
-      faceScale: snapshot.faceScale,
-      rawMouthRatio: snapshot.rawMouthRatio,
-      mouthOpenBaseline: snapshot.mouthOpenBaseline,
-      yawnThreshold: snapshot.yawnThreshold,
-      lastClosureDurationMs: snapshot.lastClosureDurationMs,
-      blinkGateOpen: snapshot.blinkGateOpen,
-      measurementConfidence: snapshot.measurementConfidence,
-      validationNotes: snapshot.validationNotes,
-      status: snapshot.status,
-    });
+    setLiveMetrics((current) => ({
+      ...current,
+      ...snapshot,
+    }));
   };
 
   const handleTrendSample = (sample) => {

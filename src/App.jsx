@@ -18,7 +18,7 @@ import useFaceMesh from "./hooks/useFaceMesh";
 import useSessionAnalytics from "./hooks/useSessionAnalytics";
 import useSessionStorage from "./hooks/useSessionStorage";
 import useUserSettings from "./hooks/useUserSettings";
-import useGeminiCoach from "./hooks/useGeminiCoach";
+import useGroqCoach from "./hooks/useGroqCoach";
 import useAuth from "./hooks/useAuth";
 import {
   createInsightSummary,
@@ -278,14 +278,12 @@ function App() {
     [dashboardMetrics, enhancedHistory, liveMetrics, settings]
   );
 
-  const geminiCoach = useGeminiCoach({
+  const groqCoach = useGroqCoach({
     liveMetrics,
     dashboardMetrics,
     sessionHistory: enhancedHistory,
     settings,
     liveCalibration,
-    sessionActive,
-    authToken: auth.token,
   });
 
   const currentView = viewConfig[activeView];
@@ -570,7 +568,7 @@ function App() {
           settings={settings}
           sessionHistory={enhancedHistory}
           liveCalibration={liveCalibration}
-          geminiCoach={geminiCoach}
+          groqCoach={groqCoach}
         />
 
         <SessionReportModal report={sessionReport} onClose={closeSessionReport} />

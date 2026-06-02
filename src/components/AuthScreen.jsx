@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-function AuthInput({ label, type = "text", value, onChange, placeholder }) {
+function AuthInput({ label, type = "text", value, onChange, placeholder, error }) {
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-medium text-slate-200">{label}</span>
@@ -9,39 +9,75 @@ function AuthInput({ label, type = "text", value, onChange, placeholder }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-sky-400/35 focus:bg-white/[0.06]"
+        className={`w-full rounded-2xl border bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:bg-white/[0.06] ${
+          error ? "border-red-400/40 focus:border-red-400/50" : "border-white/10 focus:border-sky-400/35"
+        }`}
       />
+      {error && <p className="mt-1 text-xs text-red-300">{error}</p>}
     </label>
   );
 }
 
 function AuthScreen({ auth }) {
-  const registrationEnabled = auth.serverConfig?.registrationEnabled !== false;
-  const demoAuthEnabled = Boolean(auth.serverConfig?.demoAuthEnabled);
-  const demoUserEmail = auth.serverConfig?.demoUserEmail;
-  const [mode, setMode] = useState(registrationEnabled ? "login" : "login");
+  const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [localError, setLocalError] = useState("");
+
+  const validate = () => {
+    const errors = {};
+    if (mode === "register" && !name.trim()) {
+      errors.name = "Name is required.";
+    }
+    if (!email.trim()) {
+      errors.email = "Email is required.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      errors.email = "Invalid email format.";
+    }
+    if (!password) {
+      errors.password = "Password is required.";
+    } else if (password.length < 6) {
+      errors.password = "Password must be at least 6 characters.";
+    } else if (!/[A-Z]/.test(password)) {
+      errors.password = "Must contain an uppercase letter.";
+    } else if (!/[0-9]/.test(password)) {
+      errors.password = "Must contain a number.";
+    }
+    if (mode === "register" && password !== confirmPassword) {
+      errors.confirmPassword = "Passwords do not match.";
+    }
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const submit = async (event) => {
     event.preventDefault();
     setLocalError("");
-    setIsSubmitting(true);
 
+    if (!validate()) return;
+
+    setIsSubmitting(true);
     try {
-      if (mode === "register" && registrationEnabled) {
-        await auth.register({ name, email, password });
+      if (mode === "register") {
+        await auth.register({ name: name.trim(), email: email.trim(), password });
       } else {
-        await auth.login({ email, password });
+        await auth.login({ email: email.trim(), password });
       }
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : "Authentication failed.");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const switchMode = (newMode) => {
+    setMode(newMode);
+    setFieldErrors({});
+    setLocalError("");
   };
 
   return (
@@ -63,12 +99,12 @@ function AuthScreen({ auth }) {
           </div>
 
           <h1 className="mt-8 max-w-2xl text-4xl font-semibold leading-tight text-white lg:text-5xl">
-            Secure access for your live wellness analytics workspace.
+            Your personal focus & wellness command center.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-8 text-slate-400">
-            Sign in before entering the dashboard. JWT-backed local auth keeps the app
-            structured like a production product while still staying fully runnable on your
-            machine.
+            Create an account or sign in to access real-time face monitoring, fatigue tracking,
+            AI-powered coaching via Groq, and detailed session analytics — all running locally
+            in your browser.
           </p>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
@@ -76,21 +112,21 @@ function AuthScreen({ auth }) {
               <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Privacy</p>
               <p className="mt-3 text-xl font-semibold text-white">Local-first</p>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Face analysis remains in-browser while auth stays inside the local Node server.
+                All face analysis stays in-browser. Your data never leaves your machine.
               </p>
             </div>
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Access</p>
-              <p className="mt-3 text-xl font-semibold text-white">JWT session</p>
+              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">AI Coach</p>
+              <p className="mt-3 text-xl font-semibold text-white">Groq-powered</p>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Signed tokens keep the workspace protected without adding a full backend stack.
+                Real-time coaching powered by Groq's ultra-fast inference. Bring your own API key.
               </p>
             </div>
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Assistant</p>
-              <p className="mt-3 text-xl font-semibold text-white">Gemini ready</p>
+              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Security</p>
+              <p className="mt-3 text-xl font-semibold text-white">Encrypted</p>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Secure access also protects your Gemini coaching route behind authentication.
+                Passwords are hashed locally with SHA-256. Sessions expire after 24 hours.
               </p>
             </div>
           </div>
@@ -100,7 +136,7 @@ function AuthScreen({ auth }) {
           <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] p-1">
             <button
               type="button"
-              onClick={() => setMode("login")}
+              onClick={() => switchMode("login")}
               className={`flex-1 rounded-full px-4 py-2 text-sm font-medium transition ${
                 mode === "login"
                   ? "bg-gradient-to-r from-sky-500 to-indigo-500 text-white"
@@ -111,13 +147,12 @@ function AuthScreen({ auth }) {
             </button>
             <button
               type="button"
-              onClick={() => registrationEnabled && setMode("register")}
+              onClick={() => switchMode("register")}
               className={`flex-1 rounded-full px-4 py-2 text-sm font-medium transition ${
                 mode === "register"
                   ? "bg-gradient-to-r from-sky-500 to-indigo-500 text-white"
                   : "text-slate-300"
-              } ${registrationEnabled ? "" : "cursor-not-allowed opacity-45"}`}
-              disabled={!registrationEnabled}
+              }`}
             >
               Create Account
             </button>
@@ -125,57 +160,65 @@ function AuthScreen({ auth }) {
 
           <div className="mt-6">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-500">
-              {mode === "register" ? "New operator access" : "Operator login"}
+              {mode === "register" ? "New account" : "Existing user"}
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-white">
-              {mode === "register" ? "Create your workspace account" : "Welcome back"}
+              {mode === "register"
+                ? "Create your AuraSense account"
+                : "Welcome back"}
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">
               {mode === "register"
-                ? "Set up a local account to unlock the dashboard, reports, and Gemini support."
-                : "Sign in to continue into your monitoring workspace."}
+                ? "Fill in the details below to get started with real-time focus tracking and AI coaching."
+                : "Sign in to access your monitoring workspace and session history."}
             </p>
-            {!registrationEnabled ? (
-              <p className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                Registration is disabled for this deployment. Use the demo login provided below.
-              </p>
-            ) : null}
-            {demoAuthEnabled ? (
-              <p className="mt-3 rounded-2xl border border-sky-400/20 bg-sky-500/10 px-4 py-3 text-sm text-sky-100">
-                Demo account enabled: <span className="font-semibold">{demoUserEmail}</span>
-              </p>
-            ) : null}
           </div>
 
-          <form className="mt-6 space-y-4" onSubmit={submit}>
-            {mode === "register" ? (
+          <form className="mt-6 space-y-4" onSubmit={submit} noValidate>
+            {mode === "register" && (
               <AuthInput
                 label="Full name"
                 value={name}
                 onChange={setName}
-                placeholder="Saga Murugan"
+                placeholder="Your name"
+                error={fieldErrors.name}
               />
-            ) : null}
+            )}
+
             <AuthInput
               label="Email address"
               type="email"
               value={email}
               onChange={setEmail}
               placeholder="you@example.com"
+              error={fieldErrors.email}
             />
+
             <AuthInput
               label="Password"
               type="password"
               value={password}
               onChange={setPassword}
-              placeholder="Minimum 6 characters"
+              placeholder={mode === "register" ? "Min 6 chars, 1 uppercase, 1 number" : "Your password"}
+              error={fieldErrors.password}
             />
 
-            {localError || auth.error ? (
+            {mode === "register" && (
+              <AuthInput
+                label="Confirm password"
+                type="password"
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                placeholder="Re-enter your password"
+                error={fieldErrors.confirmPassword}
+              />
+            )}
+
+            {(localError || auth.error) && (
               <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
                 {localError || auth.error}
               </div>
-            ) : null}
+            )}
 
             <button
               type="submit"
